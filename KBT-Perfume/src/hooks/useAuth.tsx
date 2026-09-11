@@ -3,10 +3,9 @@ import {
   signOut,
   type User,
 } from 'firebase/auth'
-import { doc, getDoc } from 'firebase/firestore'
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { auth } from '../firebase/auth'
-import { db } from '../firebase/firestore'
+import { getProfileForAuthUser } from '../services/profileService'
 import type { AuthContextValue, UserProfile } from '../types/auth'
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
@@ -22,33 +21,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser)
-
-      if (!currentUser) {
-        setProfile(null)
-        setLoading(false)
-        return
-      }
-
       try {
-        const profileSnapshot = await getDoc(doc(db, 'users', currentUser.uid))
-        setProfile(
-          profileSnapshot.exists()
-            ? (profileSnapshot.data() as UserProfile)
-            : {
-                uid: currentUser.uid,
-                email: currentUser.email ?? '',
-                fullName: currentUser.displayName ?? 'Khách hàng',
-                role: 'customer',
-              },
-        )
+        setUser(currentUser)
+
+        if (!currentUser) {
+          setProfile(null)
+          return
+        }
+
+        const loadedProfile = await getProfileForAuthUser(currentUser.uid, currentUser.email, currentUser.displayName)
+        if (loadedProfile.isActive === false) {
+          setProfile(null)
+          await signOut(auth)
+          return
+        }
+
+        setProfile(loadedProfile)
       } catch {
-        setProfile({
-          uid: currentUser.uid,
-          email: currentUser.email ?? '',
-          fullName: currentUser.displayName ?? 'Khách hàng',
-          role: 'customer',
-        })
+        setProfile(null)
       } finally {
         setLoading(false)
       }

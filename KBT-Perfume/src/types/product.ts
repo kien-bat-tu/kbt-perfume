@@ -11,8 +11,22 @@ export interface Product {
   brandId?: string
   categoryId?: string
   salePrice?: number
+  volume?: string
   gender?: string
   scentFamily?: string
+  topNotes?: string
+  middleNotes?: string
+  baseNotes?: string
+  longevity?: string
+  sillage?: string
+  brandOrigin?: string
+  concentration?: string
+  season?: string
+  scentMood?: string
+  productType?: string
+  style?: string
+  releaseYear?: string
+  isActive?: boolean
   brandName?: string
   categoryName?: string
 }

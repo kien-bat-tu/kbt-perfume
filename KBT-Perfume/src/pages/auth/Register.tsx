@@ -6,6 +6,7 @@ import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { auth } from '../../firebase/auth'
 import { db } from '../../firebase/firestore'
+import AuthFooter from '../../components/auth/AuthFooter'
 
 function getRegisterErrorMessage(error: unknown) {
   if (error instanceof FirebaseError) {
@@ -53,22 +54,14 @@ export default function Register() {
   }
 
   return (
-    <main className="auth-shell auth-shell-register">
-      <section className="auth-intro">
-        <div className="brand-mark"><Sparkles size={18} /> KBT Perfume</div>
-        <div className="intro-copy">
-          <p className="eyebrow">Begin your ritual</p>
-          <h1>Your signature scent starts here.</h1>
-          <p>Tạo tài khoản để lưu lại những mùi hương bạn yêu thích và theo dõi đơn hàng.</p>
-        </div>
-        <span className="intro-note">Small details. Lasting impressions.</span>
-      </section>
-
-      <section className="auth-panel">
-        <div className="auth-panel-inner">
-          <p className="eyebrow">New here?</p>
-          <h2>Tạo tài khoản</h2>
-          <p className="auth-subtitle">Bắt đầu trải nghiệm KBT Perfume hôm nay.</p>
+    <main className="auth-choice-page">
+      <div className="auth-promo-bar"><span>FreeShip toàn quốc với đơn từ 1,5 triệu</span><span>Hotline: 1900 1234</span></div>
+      <header className="auth-choice-header"><Link className="auth-choice-brand" to="/login"><Sparkles size={17} /> KBT Perfume</Link><nav><Link to="/login">Trang chủ</Link><Link to="/login">Sản phẩm</Link><Link to="/login">Về chúng tôi</Link><Link to="/login">Thương hiệu</Link><Link to="/customer/ai-consultation">Tư vấn AI</Link></nav><div className="auth-choice-actions"><Link to="/login">Đăng nhập</Link><Link className="register-nav-link" to="/register">Đăng ký</Link></div></header>
+      <section className="auth-choice-panel">
+        <div className="auth-panel-inner register-choice-inner">
+          <p className="eyebrow">KBT Perfume account</p>
+          <h2>Tạo tài khoản khách hàng</h2>
+          <p className="auth-subtitle">Đăng ký để mua sắm, theo dõi đơn hàng và lưu lại những mùi hương yêu thích.</p>
 
           <form className="auth-form" onSubmit={handleSubmit}>
             <label>
@@ -90,9 +83,11 @@ export default function Register() {
             </button>
           </form>
 
-          <p className="switch-auth">Đã có tài khoản? <Link to="/login">Đăng nhập</Link></p>
+          <p className="auth-admin-note">Tài khoản quản trị được tạo riêng trong Firebase.</p>
+          <p className="switch-auth">Đã có tài khoản? <Link to="/login">Đăng nhập khách hàng</Link></p>
         </div>
       </section>
+      <AuthFooter />
     </main>
   )
 }

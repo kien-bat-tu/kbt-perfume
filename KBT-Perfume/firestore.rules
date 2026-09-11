@@ -3,34 +3,79 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    function isAdmin() {
+      return request.auth != null && (
+        request.auth.token.email == 'nguyentrungkien012003@gmail.com'
+        || request.auth.token.email == 'admin@kbtperfume.local'
+        || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+        || get(/databases/$(database)/documents/user/$(request.auth.uid)).data.role == 'admin'
+      );
+    }
+
     // Hồ sơ người dùng chính
     match /users/{userId} {
-      allow read, write: if request.auth != null
-        && request.auth.uid == userId;
+      allow read: if request.auth != null && (
+        request.auth.uid == userId
+        || resource.data.uid == request.auth.uid
+        || isAdmin()
+      );
+      allow create: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.data.role == 'customer';
+      allow update: if request.auth != null
+        && (
+          (request.auth.uid == userId
+            && request.resource.data.role == resource.data.role)
+          || (isAdmin()
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isActive']))
+        );
     }
 
     // Collection cũ nếu còn dữ liệu trong user
     match /user/{userId} {
-      allow read, write: if request.auth != null
+      allow read: if request.auth != null && (
+        request.auth.uid == userId
+        || resource.data.uid == request.auth.uid
+      );
+      allow create, update: if request.auth != null
         && request.auth.uid == userId;
     }
 
-    // Sản phẩm: customer được đọc, không được ghi
+    // Sản phẩm: customer đọc và trừ stock qua transaction tạo đơn; admin quản lý đầy đủ
     match /products/{productId} {
-      allow read: if request.auth != null;
-      allow write: if false;
+      allow read: if true;
+      allow create, delete: if request.auth != null
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      allow update: if request.auth != null && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+        || (
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stock'])
+          && request.resource.data.stock is int
+          && request.resource.data.stock >= 0
+          && request.resource.data.stock < resource.data.stock
+        )
+      );
     }
 
     // Thương hiệu
     match /brands/{brandId} {
-      allow read: if request.auth != null;
-      allow write: if false;
+      allow read: if true;
+      allow create, update, delete: if request.auth != null
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
     // Danh mục
     match /categories/{categoryId} {
+      allow read: if true;
+      allow create, update, delete: if request.auth != null
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Banner cửa hàng: khách hàng đọc, chỉ admin được quản lý
+    match /banners/{bannerId} {
       allow read: if request.auth != null;
-      allow write: if false;
+      allow create, update, delete: if request.auth != null
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
     // Giỏ hàng theo user
@@ -44,14 +89,71 @@ service cloud.firestore {
       allow create: if request.auth != null
         && request.resource.data.userId == request.auth.uid;
 
-      allow read: if request.auth != null
-        && resource.data.userId == request.auth.uid;
+      allow read: if request.auth != null && (
+        resource.data.userId == request.auth.uid
+        || isAdmin()
+      );
 
-      allow update: if request.auth != null
-        && resource.data.userId == request.auth.uid
-        && request.resource.data.userId == resource.data.userId;
+      allow update: if request.auth != null && (
+        isAdmin()
+      ) && request.resource.data.userId == resource.data.userId;
 
       allow delete: if false;
+    }
+
+    // Đánh giá sản phẩm: mọi người dùng đăng nhập được đọc, mỗi user tự quản lý đánh giá của mình
+    match /reviews/{reviewId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.rating >= 1
+        && request.resource.data.rating <= 5;
+      allow update: if request.auth != null
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.productId == resource.data.productId
+        && request.resource.data.rating >= 1
+        && request.resource.data.rating <= 5;
+      allow delete: if request.auth != null && (
+        resource.data.userId == request.auth.uid
+        || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+      );
+    }
+
+    // Yêu cầu hỗ trợ: khách hàng tạo và đọc yêu cầu của mình
+    match /supportTickets/{ticketId} {
+      allow create: if request.auth != null
+        && request.resource.data.userId == request.auth.uid;
+      allow read: if request.auth != null && (
+        resource.data.userId == request.auth.uid
+        || isAdmin()
+      );
+      allow update: if request.auth != null
+        && isAdmin()
+        && request.resource.data.userId == resource.data.userId;
+      allow delete: if false;
+    }
+
+    // Yêu cầu hoàn hàng: khách tạo/xem yêu cầu của mình, admin xử lý trạng thái
+    match /returnRequests/{requestId} {
+      allow create: if request.auth != null
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.status == 'pending';
+      allow read: if request.auth != null && (
+        resource.data.userId == request.auth.uid
+        || isAdmin()
+      );
+      allow update: if request.auth != null
+        && isAdmin()
+        && request.resource.data.userId == resource.data.userId;
+      allow delete: if false;
+    }
+
+    // Cấu hình tài khoản nhận chuyển khoản: customer đọc công khai để hiển thị QR thanh toán, chỉ admin được sửa
+    match /storeSettings/{settingId} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && isAdmin();
     }
   }
 }

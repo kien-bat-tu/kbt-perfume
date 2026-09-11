@@ -6,6 +6,17 @@ export interface CartItem extends Product {
   quantity: number
 }
 
+export function getEffectiveProductPrice(product: Pick<Product, 'price' | 'salePrice'>) {
+  const basePrice = Number(product.price ?? 0)
+  const discountPrice = Number(product.salePrice ?? 0)
+
+  if (discountPrice > 0 && discountPrice < basePrice) {
+    return discountPrice
+  }
+
+  return basePrice
+}
+
 interface CartState {
   items: CartItem[]
   addItem: (product: Product, quantity?: number) => void
